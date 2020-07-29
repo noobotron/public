@@ -1,0 +1,41 @@
+set services nat pool DST-NAT-POOL-BEELINE-5POST_01 address 192.168.32.228/32
+set services nat pool NAT-POOL-BEELINE-5POST_01 address 100.88.88.96/32
+
+set services service-set Set_NAT-5POST stateful-firewall-rules allow-all
+set services service-set Set_NAT-5POST nat-rules NAT-BEELINE-5POST-01
+set services service-set Set_NAT-5POST nat-rules NAT-BEELINE-5POST-02
+
+set services service-set Set_NAT-5POST interface-service service-interface ms-0/2/0.40
+
+set services nat rule NAT-BEELINE-5POST-01 match-direction input
+set services nat rule NAT-BEELINE-5POST-01 term term-1 from destination-address 100.88.88.96/32
+set services nat rule NAT-BEELINE-5POST-01 term term-1 from source-address-range low 85.115.249.7 high 85.115.249.9
+set services nat rule NAT-BEELINE-5POST-01 term term-1 then translated destination-pool DST-NAT-POOL-BEELINE-5POST_01
+set services nat rule NAT-BEELINE-5POST-01 term term-1 then translated translation-type dnat-44
+
+set services nat rule NAT-BEELINE-5POST-02 match-direction output
+set services nat rule NAT-BEELINE-5POST-02 term term-1 from source-address 192.168.32.228/32
+set services nat rule NAT-BEELINE-5POST-02 term term-1 from destination-address 85.115.249.7/32
+set services nat rule NAT-BEELINE-5POST-02 term term-1 from destination-address 85.115.249.8/32
+set services nat rule NAT-BEELINE-5POST-02 term term-1 from destination-address 85.115.249.9/32
+set services nat rule NAT-BEELINE-5POST-02 term term-1 then translated source-pool NAT-POOL-BEELINE-5POST_01
+set services nat rule NAT-BEELINE-5POST-02 term term-1 then translated translation-type basic-nat44
+
+set interfaces ms-0/2/0 unit 40 description "services interface nat 5Post" family inet
+set routing-instances msk.dc interface ms-0/2/0.40
+
+set interfaces ge-0/1/3 unit 774 family inet service input service-set Set_NAT-5POST service-filter in_filter_presvc
+set interfaces ge-0/1/3 unit 774 family inet service output service-set Set_NAT-5POST service-filter out_filter_presvc
+
+set policy-options policy-statement rm-beeline-5post-in term term-1 from protocol bgp
+set policy-options policy-statement rm-beeline-5post-in term term-1 from route-filter 85.115.249.7/32 exact
+set policy-options policy-statement rm-beeline-5post-in term term-1 from route-filter 85.115.249.8/32 exact
+set policy-options policy-statement rm-beeline-5post-in term term-1 from route-filter 85.115.249.9/32 exact
+set policy-options policy-statement rm-beeline-5post-in term term-1 then local-preference add 2500
+set policy-options policy-statement rm-beeline-5post-in term term-1 then accept
+set policy-options policy-statement rm-beeline-5post-in term explicit-deny then reject
+
+set policy-options policy-statement rm-beeline-5post-out term term-1 from protocol static
+set policy-options policy-statement rm-beeline-5post-out term term-1 from route-filter 100.88.88.96/32 exact
+set policy-options policy-statement rm-beeline-5post-out term term-1 then accept
+set policy-options policy-statement rm-beeline-5post-out term explicit-deny then reject
