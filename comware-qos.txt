@@ -1,0 +1,154 @@
+### ACLs
+acl number 3501 name QOS-ACL-NETWORK-MGMT
+rule 1 permit tcp destination-port eq tacacs
+rule 2 permit tcp source-port eq 22
+rule 3 permit tcp source-port eq telnet
+rule 4 permit udp source-port eq snmp
+rule 5 permit udp destination-port eq snmptrap
+rule 6 permit udp destination-port eq syslog
+#
+acl number 3502 name QOS-ACL-SBERBANK-ACQUIRING
+rule 1 permit tcp destination-port eq 666
+rule 2 permit tcp destination-port eq 670
+#
+acl number 3503 name QOS-ACL-OFD
+rule 1 permit tcp destination-port eq 7777
+#
+acl number 3504 name QOS-ACL-EGAIS
+rule 1 permit ip destination 146.120.90.0 0.0.0.255
+#
+acl number 3505 name QOS-ACL-COMARCH
+rule 1 permit tcp destination 185.98.81.0 0.0.0.255
+#
+acl number 3506 name QOS-ACL-SAP-ERP
+rule 1 permit tcp destination 192.168.48.0 0.0.0.255
+rule 2 permit tcp destination 192.168.226.128 0.0.0.127
+#
+acl number 3507 name QOS-ACL-EXCHANGE
+rule 1 permit tcp destination 192.168.32.52 0
+rule 2 permit tcp destination 192.168.32.62 0
+#
+acl number 3508 name QOS-ACL-BAHUS
+rule 1 permit tcp destination 192.168.32.55 0
+
+### Classifiers 
+traffic classifier QOS-CLASS-VOIP operator and
+if-match dscp ef
+if-match protocol rtp payload-type audio
+#
+traffic classifier QOS-CLASS-VIDEO operator and
+if-match dscp cs3
+if-match protocol rtp payload-type video
+#
+traffic classifier QOS-CLASS-NETWORK-MGMT operator and
+if-match acl name QOS-ACL-NETWORK-MGMT
+#
+traffic classifier QOS-CLASS-SBERBANK-ACQUIRING operator and
+if-match acl name QOS-ACL-SBERBANK-ACQUIRING
+#
+traffic classifier QOS-CLASS-OFD operator and
+if-match acl name QOS-ACL-OFD
+#
+traffic classifier QOS-CLASS-EGAIS operator and
+if-match acl name QOS-ACL-EGAIS
+#
+traffic classifier QOS-CLASS-COMARCH operator and
+if-match acl name QOS-ACL-COMARCH
+#
+traffic classifier QOS-CLASS-SAP-ERP operator and
+if-match acl name QOS-ACL-SAP-ERP
+#
+traffic classifier QOS-CLASS-EXCHANGE operator and
+if-match acl name QOS-ACL-EXCHANGE
+#
+traffic classifier QOS-CLASS-BAHUS operator and
+if-match acl name QOS-ACL-BAHUS
+#
+traffic classifier TC-DSCP-EF operator or
+if-match classifier QOS-CLASS-VOIP
+if-match classifier QOS-CLASS-VIDEO
+#
+traffic classifier TC-DSCP-AF11 operator or
+if-match classifier QOS-CLASS-SAP-ERP
+if-match classifier QOS-CLASS-EXCHANGE
+if-match classifier QOS-CLASS-BAHUS
+#
+traffic classifier TC-DSCP-AF31 operator or
+if-match classifier QOS-CLASS-NETWORK-MGMT
+if-match classifier QOS-CLASS-SBERBANK-ACQUIRING
+if-match classifier QOS-CLASS-OFD
+if-match classifier QOS-CLASS-EGAIS
+if-match classifier QOS-CLASS-COMARCH
+
+
+### Traffic behavior
+traffic behavior TB-QOS-AF11-OUT
+queue af bandwidth pct 30
+#
+traffic behavior TB-QOS-AF31-OUT
+queue af bandwidth pct 15
+#
+traffic behavior TB-QOS-BAHUS-IN
+remark dscp af11
+#
+traffic behavior TB-QOS-BE-OUT
+queue wfq
+#
+traffic behavior TB-QOS-COMARCH-IN
+remark dscp af31
+#
+traffic behavior TB-QOS-EGAIS-IN
+remark dscp af31
+#
+traffic behavior TB-QOS-EXCHANGE-IN
+remark dscp af11
+#
+traffic behavior TB-QOS-EF-OUT
+queue ef bandwidth pct 15 cbs-ratio 25
+#
+traffic behavior TB-QOS-NETWORK-MANAGEMENT-IN
+remark dscp af31
+#
+traffic behavior TB-QOS-OFD-IN
+remark dscp af31
+#
+traffic behavior TB-QOS-SBERBANK-ACQUIRING-IN
+remark dscp af31
+#
+traffic behavior TB-QOS-SAP-ERP-IN
+remark dscp af11
+#
+traffic behavior TB-QOS-VOIP-IN
+remark dscp ef
+#
+traffic behavior TB-SHAPE-OUT
+gts percent cir 90 cbs 500 ebs 0
+traffic-policy QOS-POLICY-OUT
+
+###  QoS policies
+qos policy QOS-POLICY-IN
+classifier QOS-CLASS-VOIP behavior TB-QOS-VOIP-IN
+classifier QOS-CLASS-NETWORK-MANAGEMENT behavior TB-QOS-NETWORK-MANAGEMENT-IN
+classifier QOS-CLASS-OFD behavior TB-QOS-OFD-IN
+classifier QOS-CLASS-EGAIS behavior TB-QOS-EGAIS-IN
+classifier QOS-CLASS-COMARCH behavior TB-QOS-COMARCH-IN
+classifier QOS-CLASS-SAP-ERP behavior TB-QOS-SAP-ERP-IN
+classifier QOS-CLASS-EXCHANGE behavior TB-QOS-EXCHANGE-IN
+classifier QOS-CLASS-BAHUS behavior TB-QOS-BAHUS-IN
+classifier QOS-CLASS-SBERBANK-ACQUIRING behavior TB-QOS-SBERBANK-ACQUIRING-IN
+#
+qos policy QOS-POLICY-OUT
+classifier TC-DSCP-AF31 behavior TB-QOS-AF31-OUT
+classifier TC-DSCP-AF11 behavior TB-QOS-AF11-OUT
+classifier TC-DSCP-EF behavior TB-QOS-EF-OUT
+#
+qos policy QOS-POLICY-4M-OUT
+classifier default-class behavior TB-SHAPE-OUT
+
+
+### Interfaces configuration
+interface Vlan-interface1
+qos apply policy QOS-POLICY-IN inbound
+#
+interface GigabitEthernet0/0
+qos apply policy QOS-POLICY-4M-OUT outbound
